@@ -1,0 +1,7 @@
+{
+  "auths": {
+    "registry.redhat.io": {
+      "auth": "YOUR_BASE64_ENCODED_CREDENTIALS_HERE"
+    }
+  }
+}

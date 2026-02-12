@@ -1,0 +1,39 @@
+# Build outputs
+output/
+*.qcow2
+*.raw
+*.iso
+
+# Backups
+backups/
+
+# Temporary files
+*.tmp
+*.log
+
+# Secrets and credentials
+secrets/
+*.pem
+*.key
+*.crt
+bootc/registry-auth.json
+
+# Pre-pulled container image tars
+bootc/*.tar
+
+# Upstream OpenDesk repo (separate git repo)
+opendesk-repo/
+
+# Claude Code working files
+.claude/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db

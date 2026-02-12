@@ -1,0 +1,98 @@
+# OpenDesk Nextcloud on UBI9
+# Red Hat Universal Base Image 9 with PHP 8.2 and Apache httpd
+
+FROM registry.redhat.io/ubi9/ubi:latest
+
+LABEL name="opendesk-nextcloud" \
+      version="31.0" \
+      summary="Nextcloud on UBI9 for OpenDesk" \
+      description="Nextcloud file management built on Red Hat UBI9 with PHP 8.2 and Apache httpd" \
+      io.k8s.display-name="OpenDesk Nextcloud" \
+      io.k8s.description="Nextcloud on UBI9"
+
+# Nextcloud version to install
+ENV NEXTCLOUD_VERSION=31.0.2
+
+# PHP defaults
+ENV PHP_MEMORY_LIMIT=512M \
+    PHP_UPLOAD_LIMIT=512M \
+    PHP_OPCACHE_MEMORY_CONSUMPTION=128
+
+# Enable PHP 8.2 module and install runtime packages
+# RHEL9 does not ship mod_php; use php-fpm behind httpd mod_proxy_fcgi
+RUN dnf module enable php:8.2 -y && \
+    dnf install -y \
+        httpd \
+        php-fpm \
+        php-cli \
+        php-common \
+        php-curl \
+        php-gd \
+        php-intl \
+        php-bcmath \
+        php-mbstring \
+        php-opcache \
+        php-pdo \
+        php-pgsql \
+        php-process \
+        php-xml \
+        php-zip \
+        php-pecl-apcu \
+        php-gmp \
+        rsync \
+        bzip2 \
+        sudo \
+    && dnf clean all
+
+# Install php-redis via PECL (not available in RHEL9 repos)
+RUN dnf install -y php-devel php-pear gcc make && \
+    pecl install redis && \
+    echo "extension=redis.so" > /etc/php.d/50-redis.ini && \
+    dnf remove -y php-devel php-pear gcc make && \
+    dnf clean all
+
+# Download and extract Nextcloud
+RUN curl -fsSL "https://download.nextcloud.com/server/releases/nextcloud-${NEXTCLOUD_VERSION}.tar.bz2" \
+        -o /tmp/nextcloud.tar.bz2 && \
+    curl -fsSL "https://download.nextcloud.com/server/releases/nextcloud-${NEXTCLOUD_VERSION}.tar.bz2.sha256" \
+        -o /tmp/nextcloud.tar.bz2.sha256 && \
+    cd /tmp && grep "nextcloud-${NEXTCLOUD_VERSION}.tar.bz2$" nextcloud.tar.bz2.sha256 | \
+        sed "s|nextcloud-${NEXTCLOUD_VERSION}.tar.bz2|nextcloud.tar.bz2|" | sha256sum -c - && \
+    tar -xjf /tmp/nextcloud.tar.bz2 -C /usr/src/ && \
+    rm -f /tmp/nextcloud.tar.bz2 /tmp/nextcloud.tar.bz2.sha256
+
+# Prepare Nextcloud source directories
+RUN mkdir -p /usr/src/nextcloud/data \
+             /usr/src/nextcloud/custom_apps \
+             /usr/src/nextcloud/themes \
+             /var/www/html
+
+# Configure Apache: remove default welcome page, add Nextcloud vhost
+RUN rm -f /etc/httpd/conf.d/welcome.conf /etc/httpd/conf.d/ssl.conf
+COPY containers/nextcloud/nextcloud.conf /etc/httpd/conf.d/nextcloud.conf
+
+# Configure php-fpm: use Unix socket to avoid port conflicts (MinIO uses 9000)
+RUN mkdir -p /run/php-fpm && \
+    sed -i \
+        -e 's|^listen = .*|listen = /run/php-fpm/www.sock|' \
+        -e 's|^;*listen.owner = .*|listen.owner = apache|' \
+        -e 's|^;*listen.group = .*|listen.group = apache|' \
+        -e 's|^;*listen.mode = .*|listen.mode = 0660|' \
+        -e 's|^user = .*|user = apache|' \
+        -e 's|^group = .*|group = apache|' \
+        -e 's|^;*clear_env = .*|clear_env = no|' \
+        -e 's|^;*env\[PATH\].*|env[PATH] = /usr/local/bin:/usr/bin:/bin|' \
+        /etc/php-fpm.d/www.conf
+
+# Send Apache logs to stdout/stderr for container logging
+RUN ln -sf /dev/stderr /etc/httpd/logs/error_log
+
+# Copy upgrade exclude list and entrypoint
+COPY containers/nextcloud/upgrade.exclude /upgrade.exclude
+COPY containers/nextcloud/entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+EXPOSE 80
+
+ENTRYPOINT ["/entrypoint.sh"]
+CMD ["httpd", "-D", "FOREGROUND"]

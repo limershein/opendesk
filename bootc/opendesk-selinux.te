@@ -1,0 +1,24 @@
+module opendesk-selinux 1.0;
+
+require {
+    type init_t;
+    type container_runtime_t;
+    type container_t;
+    type proc_t;
+    class bpf { map_create map_read map_write prog_load prog_run };
+    class filesystem associate;
+}
+
+#============= init_t ==============
+# Allow systemd (init_t) to run BPF programs for container runtime
+# This is needed for podman networking and cgroup management
+allow init_t container_runtime_t:bpf prog_run;
+allow init_t container_runtime_t:bpf map_create;
+allow init_t container_runtime_t:bpf map_read;
+allow init_t container_runtime_t:bpf map_write;
+allow init_t container_runtime_t:bpf prog_load;
+
+#============= container_t ==============
+# Allow containers to associate with proc filesystem
+# This is needed for containers accessing /proc
+allow container_t proc_t:filesystem associate;

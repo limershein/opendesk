@@ -1,0 +1,21 @@
+[Unit]
+Description=Load pre-pulled OpenDesk container images
+Documentation=https://docs.opendesk.eu/
+Before=opendesk-minimal.service
+ConditionPathExists=/usr/share/opendesk/images/postgres.tar
+ConditionPathExists=!/var/lib/opendesk/.images-loaded
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/bin/podman load -i /usr/share/opendesk/images/postgres.tar
+ExecStart=/usr/bin/podman load -i /usr/share/opendesk/images/redis.tar
+ExecStart=/usr/bin/podman load -i /usr/share/opendesk/images/minio.tar
+ExecStart=/usr/bin/podman load -i /usr/share/opendesk/images/nextcloud.tar
+ExecStart=/usr/bin/mkdir -p /var/lib/opendesk
+ExecStart=/usr/bin/touch /var/lib/opendesk/.images-loaded
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

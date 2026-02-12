@@ -1,0 +1,26 @@
+[Unit]
+Description=OpenDesk Minimal Deployment
+Documentation=https://docs.opendesk.eu/
+After=network-online.target
+Wants=network-online.target
+
+[Kube]
+# Path to the Kubernetes YAML manifest
+Yaml=/etc/opendesk/manifests/opendesk-minimal.yaml
+
+# Automatically update images
+AutoUpdate=registry
+
+# Set exit code propagation
+ExitCodePropagation=all
+
+# Publish ports to the host
+PublishPort=8080:80
+
+[Service]
+# Restart policy
+Restart=always
+TimeoutStartSec=300
+
+[Install]
+WantedBy=multi-user.target

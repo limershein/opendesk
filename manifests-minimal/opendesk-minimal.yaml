@@ -1,0 +1,122 @@
+---
+# Minimal OpenDesk deployment for podman kube play
+# Single pod with multiple containers sharing network namespace
+# Services: PostgreSQL, Redis, MinIO, Nextcloud
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name: opendesk-minimal
+  labels:
+    app: opendesk
+spec:
+  # All containers share the same network namespace
+  # They can communicate via localhost
+  hostNetwork: false
+
+  containers:
+  # PostgreSQL Database
+  - name: postgresql
+    image: registry.redhat.io/rhel9/postgresql-15:latest
+    env:
+    - name: POSTGRESQL_USER
+      value: "opendesk"
+    - name: POSTGRESQL_PASSWORD
+      value: "changeme"
+    - name: POSTGRESQL_DATABASE
+      value: "nextcloud"
+    ports:
+    - containerPort: 5432
+    volumeMounts:
+    - name: postgres-data
+      mountPath: /var/lib/pgsql/data
+
+  # Redis Cache
+  - name: redis
+    image: registry.redhat.io/rhel9/redis-7:latest
+    ports:
+    - containerPort: 6379
+    volumeMounts:
+    - name: redis-data
+      mountPath: /var/lib/redis/data
+
+  # MinIO Object Storage
+  - name: minio
+    image: quay.io/minio/minio:latest
+    command: ["minio", "server", "/data", "--console-address", ":9001"]
+    env:
+    - name: MINIO_ROOT_USER
+      value: "minioadmin"
+    - name: MINIO_ROOT_PASSWORD
+      value: "changeme"
+    ports:
+    - containerPort: 9000
+      hostPort: 9000
+    - containerPort: 9001
+      hostPort: 9001
+    volumeMounts:
+    - name: minio-data
+      mountPath: /data
+
+  # Nextcloud File Management (UBI9-based)
+  - name: nextcloud
+    image: localhost/opendesk-nextcloud:latest
+    env:
+    - name: POSTGRES_HOST
+      value: "localhost"
+    - name: POSTGRES_DB
+      value: "nextcloud"
+    - name: POSTGRES_USER
+      value: "opendesk"
+    - name: POSTGRES_PASSWORD
+      value: "changeme"
+    - name: REDIS_HOST
+      value: "localhost"
+    - name: NEXTCLOUD_ADMIN_USER
+      value: "admin"
+    - name: NEXTCLOUD_ADMIN_PASSWORD
+      value: "changeme"
+    - name: NEXTCLOUD_TRUSTED_DOMAINS
+      value: "localhost files.opendesk.local 192.168.122.*"
+    - name: OBJECTSTORE_S3_BUCKET
+      value: "nextcloud"
+    - name: OBJECTSTORE_S3_AUTOCREATE
+      value: "true"
+    - name: OBJECTSTORE_S3_KEY
+      value: "minioadmin"
+    - name: OBJECTSTORE_S3_SECRET
+      value: "changeme"
+    - name: OBJECTSTORE_S3_HOST
+      value: "localhost"
+    - name: OBJECTSTORE_S3_PORT
+      value: "9000"
+    - name: OBJECTSTORE_S3_SSL
+      value: "false"
+    - name: OBJECTSTORE_S3_REGION
+      value: "us-east-1"
+    - name: OBJECTSTORE_S3_USEPATH_STYLE
+      value: "true"
+    ports:
+    - containerPort: 80
+      hostPort: 8080
+    volumeMounts:
+    - name: nextcloud-data
+      mountPath: /var/www/html
+
+  volumes:
+  - name: postgres-data
+    hostPath:
+      path: /var/opendesk/postgres
+      type: DirectoryOrCreate
+  - name: redis-data
+    hostPath:
+      path: /var/opendesk/redis
+      type: DirectoryOrCreate
+  - name: minio-data
+    hostPath:
+      path: /var/opendesk/minio
+      type: DirectoryOrCreate
+  - name: nextcloud-data
+    hostPath:
+      path: /var/opendesk/nextcloud
+      type: DirectoryOrCreate

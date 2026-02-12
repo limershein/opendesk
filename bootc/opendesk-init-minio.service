@@ -1,0 +1,20 @@
+[Unit]
+Description=Initialize MinIO bucket for Nextcloud
+Documentation=https://docs.opendesk.eu/
+After=opendesk-minimal.service
+PartOf=opendesk-minimal.service
+Requires=opendesk-minimal.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+# Wait for MinIO to be ready, then create bucket
+ExecStartPre=/bin/bash -c 'for i in {1..30}; do podman exec opendesk-minimal-minio mc --version &>/dev/null && break || sleep 1; done'
+ExecStart=/bin/bash -c 'podman exec opendesk-minimal-minio mc alias set myminio http://localhost:9000 minioadmin changeme'
+ExecStart=/bin/bash -c 'podman exec opendesk-minimal-minio mc mb myminio/nextcloud --ignore-existing'
+ExecStart=/bin/bash -c 'podman exec opendesk-minimal-minio mc ls myminio/nextcloud'
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

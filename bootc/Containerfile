@@ -1,0 +1,74 @@
+# OpenDesk RHEL Image Mode Deployment
+# Based on Red Hat Universal Base Image for bootc
+
+FROM registry.redhat.io/rhel10/rhel-bootc:latest
+
+# Note: podman and container-selinux are already in the rhel-bootc base image
+
+# Install required packages
+RUN dnf install -y \
+    policycoreutils-python-utils \
+    && dnf clean all
+
+# Copy pre-pulled container images (created by make pull-images target)
+# This avoids nested podman issues and runtime authentication
+# Images are saved separately to avoid podman save collapsing them into one
+RUN mkdir -p /usr/share/opendesk/images
+COPY bootc/postgres.tar /usr/share/opendesk/images/postgres.tar
+COPY bootc/redis.tar /usr/share/opendesk/images/redis.tar
+COPY bootc/minio.tar /usr/share/opendesk/images/minio.tar
+COPY bootc/nextcloud.tar /usr/share/opendesk/images/nextcloud.tar
+
+# Create admin user for login
+# Password: opendesk (change this in production!)
+# Create mail spool directory to avoid useradd warnings
+RUN mkdir -p /var/spool/mail && \
+    useradd -m -G wheel admin && \
+    echo "admin:opendesk" | chpasswd && \
+    echo "root:redhat" | chpasswd
+
+# Create directory structure for OpenDesk
+RUN mkdir -p /etc/opendesk/manifests
+
+# Copy systemd tmpfiles.d configuration for storage setup at boot
+# This ensures proper ownership even on immutable systems
+# Use /usr/lib for bootc/ostree compatibility
+RUN mkdir -p /usr/lib/tmpfiles.d
+COPY bootc/opendesk-storage.conf /usr/lib/tmpfiles.d/opendesk-storage.conf
+
+# Copy and install custom SELinux policy
+# This allows systemd to manage podman containers with BPF programs
+COPY bootc/opendesk-selinux.te /tmp/opendesk-selinux.te
+RUN cd /tmp && \
+    checkmodule -M -m -o opendesk-selinux.mod opendesk-selinux.te && \
+    semodule_package -o opendesk-selinux.pp -m opendesk-selinux.mod && \
+    semodule -i opendesk-selinux.pp && \
+    rm -f /tmp/opendesk-selinux.*
+
+# Copy Kubernetes manifests
+# Note: Build context must be from parent directory
+COPY manifests-minimal/opendesk-minimal.yaml /etc/opendesk/manifests/
+
+# Copy systemd quadlet files to the system location
+# Quadlets should be in /etc/containers/systemd/ for system-wide services
+COPY quadlets/opendesk-minimal.kube /etc/containers/systemd/
+
+# Copy and enable systemd service to load pre-pulled images on first boot
+# Use /usr/lib for bootc/ostree compatibility
+RUN mkdir -p /usr/lib/systemd/system
+COPY bootc/opendesk-load-images.service /usr/lib/systemd/system/
+COPY bootc/opendesk-init-minio.service /usr/lib/systemd/system/
+RUN systemctl enable opendesk-load-images.service
+RUN systemctl enable opendesk-init-minio.service
+
+# Note: Storage directories are created at boot by systemd-tmpfiles
+# See /usr/lib/tmpfiles.d/opendesk-storage.conf for ownership and SELinux contexts
+
+# Label for identification
+LABEL name="opendesk-minimal" \
+      version="1.0" \
+      description="Minimal OpenDesk deployment on RHEL image mode" \
+      io.containers.autoupdate="registry"
+
+# Default command (systemd will be PID 1 in image mode)
+CMD ["/sbin/init"]
