@@ -1,0 +1,17 @@
+# openDesk (RHEL Image Mode Port)
+> This repository is a reference implementation of porting the [openDesk](https://gitlab.opencode.de/bmi/opendesk) project—the sovereign workplace suite for the German public administration—to Red Hat Enterprise Linux (RHEL).
+
+The project demonstrates how to package and deploy open-source workplace applications as versioned, bootable images using RHEL Image Mode.
+
+## Developer Subscriptions
+- [Red Hat Developer for Individuals](https://developers.redhat.com/articles/faqs-no-cost-red-hat-enterprise-linux): A no-cost, self-supported subscription for individual developers to use RHEL for personal projects and experimentation.
+- [Red Hat Enterprise Linux for Business Developers](https://developers.redhat.com/products/rhel/business): A no-cost subscription providing self-serve access to RHEL for development and testing within a corporate organization.
+
+## Key Technologies
+- [RHEL Image Mode](https://developers.redhat.com/products/rhel-image-mode): A deployment method to manage the entire operating system as a container image.
+- [Podman Desktop](https://developers.redhat.com/products/podman-desktop): The local toolset for building and managing containerized RHEL images on Linux, Windows, or macOS.
+- [Python on RHEL](https://developers.redhat.com/topics/python): Standardized and secure Python runtimes optimized for RHEL environments.
+
+## Implementation Guides
+- [Building Bootable Images](https://developers.redhat.com/products/rhel-image-mode/getting-started): Learning paths for creating and deploying bootable container images.
+- [Image Mode Security](https://developers.redhat.com/articles/2025/02/25/how-image-mode-rhel-improves-security): Guidance on applying container-native security scanning and automation to the RHEL operating system.
