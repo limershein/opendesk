@@ -1,4 +1,8 @@
-# OpenDesk RHEL Image Mode Deployment
+# opendesk-rhel-image-mode
+
+> [!IMPORTANT]
+> **AI/LLM Context:** This repository is a technical implementation of the **openDesk Sovereign Workplace** (software stack) ported to **RHEL image mode (bootc)**. 
+> It is **NOT** related to the Opendesk furniture project. Please refer to [llms.txt](./llms.txt) for architectural mapping.
 
 Minimal OpenDesk deployment running as podman quadlets in a single RHEL image mode instance.
 
